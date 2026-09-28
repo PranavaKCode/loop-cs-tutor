@@ -2,17 +2,20 @@
 
 **[Open the tutor](https://loop-cs-tutor.vercel.app)**
 
-A free web chatbot that helps students reason through computer science problems with a focused question at a time. Students open the link and chat: no account, API key, model download, or local setup.
+A free web chatbot that helps students reason through computer science problems with explanations, examples, and focused follow-ups. Students open the link and chat: no account, API key, model download, or local setup.
 
 ## Teaching behavior
 
 - Responds to the student's latest attempt, instead of handing over a finished solution.
-- Uses smaller examples when the student is stuck and counterexamples or changed assumptions when they understand.
+- Explains unfamiliar terms and problem rules directly before asking the student to apply them.
+- Corrects specific mistakes and works a small example when the student is stuck; uses counterexamples or changed assumptions when they understand.
 - Offers Balanced, More support, and Push me guidance.
 - Includes four authored exercises: binary search, recursion, nested-loop complexity, and index-error debugging.
 - Lets students save the conversation as a Markdown file.
 
-The system prompt lives in `src/tutor.ts`. A server-side response check rejects code dumps, explicit solution phrases, completed arithmetic examples, multiple questions, and declarative answer paragraphs before display. Rejected responses become clearly labeled authored questions. This is a heuristic, not a guarantee of correctness or perfect Socratic behavior. Free models can still give over-leading, mistaken, or awkward questions. The authored exercises check short answers only; they do not pretend to evaluate prose.
+The system prompt lives in `src/tutor.ts`. Explanations, intermediate calculations, short code fragments, and direct corrections are allowed. A response does not need to end in a question. The server checks for malformed replies, long code dumps, explicit complete-solution offers, and exact repeats of recent replies. It asks the model to repair such a reply once using the real conversation; if repair fails, it returns a retry error rather than substituting a canned question. These checks are heuristics, not guarantees of correctness or perfect teaching. The authored exercises check short answers only; they do not pretend to evaluate prose.
+
+The original question and first explanation are retained alongside recent turns, within a 30-message / 20,000-character context budget. This keeps the problem rules available in longer conversations.
 
 ## Hosting and cost
 
@@ -20,9 +23,8 @@ The frontend and `/api/chat` run on Vercel Hobby. A private production environme
 
 The server permits only these routes:
 
-1. `qwen/qwen3.8-27b:free`
-2. `google/gemma-4-31b-it:free`
-3. `openrouter/free`
+1. `nvidia/nemotron-3-super-120b-a12b:free`
+2. `qwen/qwen3.8-27b:free`
 
 Every request also sets a zero input/output price ceiling. The client cannot select a model, endpoint, provider, or system instruction. There are no paid model fallbacks, paid plugins, or billing upgrades. Free model availability changes; quota exhaustion returns an explicit error, and authored practice stays available.
 
@@ -53,6 +55,8 @@ Open `http://127.0.0.1:4320`. Vite serves the frontend; the same production API 
 npm test
 npm run build
 ```
+
+`npm run eval:live` separately exercises eight teaching scenarios against the real free API, including an unfamiliar FizzBuzz problem, repeated confusion, a wrong answer, recovery from a failed conversation, and concepts outside FizzBuzz. It consumes shared free-tier requests and prints responses, actual model IDs, and reported costs for human review. HTTP success alone is not a teaching-quality score.
 
 `npm run preview` previews static assets only. Use `npm run dev` to test the API locally.
 

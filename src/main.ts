@@ -35,7 +35,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
       </div>
     </main>
   </div>
-  <dialog id="about" aria-labelledby="about-title"><div class="dialog-top"><h2 id="about-title">How Loop teaches</h2><button id="close-about" aria-label="Close explanation" class="text-button">Close</button></div><p>Bring a problem and whatever you’ve tried. Loop asks one focused question, gives a small hint when you’re stuck, and asks you to justify your reasoning.</p><dl><dt>Choose your level of support</dt><dd>Use Balanced for a mix of questions and hints, More support for smaller steps, or Push me for counterexamples and deeper justification. Loop is instructed to avoid finished solutions. Its teaching prompt and answer-dump filter reduce answer-giving, but cannot guarantee it.</dd><dt>Guided practice</dt><dd>Four authored exercises check short answers and offer specific hints. They do not use AI or grade free-form explanations. Choose “Discuss with AI” to take your reasoning into a conversation.</dd><dt>What happens to your messages</dt><dd>AI conversations are sent through our server to OpenRouter and a free model provider. Do not submit passwords, private data, or code you cannot share. Chats stay in this tab until you reload; Loop has no chat database or analytics. Provider and hosting service data policies still apply.</dd><dt>Free, with shared limits</dt><dd>No sign-up, API key, or download is needed. Only zero-cost model routes are enabled, with no paid fallback. If the shared daily quota or hosting limit is reached, the tutor may be temporarily unavailable. Guided exercises still work.</dd></dl><p class="dialog-links"><a href="https://openrouter.ai/privacy" target="_blank" rel="noopener noreferrer">Provider privacy</a><a href="https://github.com/PranavaKCode/loop-cs-tutor" target="_blank" rel="noopener noreferrer">Source code</a></p></dialog>
+  <dialog id="about" aria-labelledby="about-title"><div class="dialog-top"><h2 id="about-title">How Loop teaches</h2><button id="close-about" aria-label="Close explanation" class="text-button">Close</button></div><p>Bring a problem and whatever you’ve tried. Loop explains unfamiliar ideas, corrects mistakes, and helps you work through the next step. You do the final implementation.</p><dl><dt>Choose your level of support</dt><dd>Use Balanced for a mix of questions and hints, More support for smaller steps, or Push me for counterexamples and deeper justification. Ask for an explanation whenever you need one. Definitions, examples, and corrections are part of learning. Loop is instructed to leave the complete solution to you, but AI can still make mistakes.</dd><dt>Guided practice</dt><dd>Four authored exercises check short answers and offer specific hints. They do not use AI or grade free-form explanations. Choose “Discuss with AI” to take your reasoning into a conversation.</dd><dt>What happens to your messages</dt><dd>AI conversations are sent through our server to OpenRouter and a free model provider. Do not submit passwords, private data, or code you cannot share. Chats stay in this tab until you reload; Loop has no chat database or analytics. Provider and hosting service data policies still apply.</dd><dt>Free, with shared limits</dt><dd>No sign-up, API key, or download is needed. Only zero-cost model routes are enabled, with no paid fallback. If the shared daily quota or hosting limit is reached, the tutor may be temporarily unavailable. Guided exercises still work.</dd></dl><p class="dialog-links"><a href="https://openrouter.ai/privacy" target="_blank" rel="noopener noreferrer">Provider privacy</a><a href="https://github.com/PranavaKCode/loop-cs-tutor" target="_blank" rel="noopener noreferrer">Source code</a></p></dialog>
 `;
 
 // catch missing required controls during development instead of failing silently.
@@ -58,6 +58,21 @@ let practice: PracticeState | undefined;
 let busy = false;
 let generation = 0;
 
+// preserve emphasis in explanations without interpreting any student-supplied html.
+function renderInline(container: HTMLElement, text: string) {
+  for (const part of text.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/g)) {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      const code = document.createElement("code");
+      code.textContent = part.slice(1, -1);
+      container.append(code);
+    } else if (part.startsWith("**") && part.endsWith("**")) {
+      const strong = document.createElement("strong");
+      strong.textContent = part.slice(2, -2);
+      container.append(strong);
+    } else container.append(document.createTextNode(part));
+  }
+}
+
 // render a small, safe subset of markdown; html and links are never interpreted.
 function renderText(container: HTMLElement, text: string) {
   text.split(/```(?:[\w+-]*)\n?([\s\S]*?)```/g).forEach((block, index) => {
@@ -69,14 +84,19 @@ function renderText(container: HTMLElement, text: string) {
       container.append(pre);
     } else {
       for (const paragraph of block.split(/\n\s*\n/).filter(Boolean)) {
+        const lines = paragraph.trim().split("\n");
+        if (lines.every((line) => /^[-*] /.test(line))) {
+          const list = document.createElement("ul");
+          for (const line of lines) {
+            const item = document.createElement("li");
+            renderInline(item, line.slice(2));
+            list.append(item);
+          }
+          container.append(list);
+          continue;
+        }
         const p = document.createElement("p");
-        paragraph.split(/`([^`\n]+)`/g).forEach((part, i) => {
-          if (i % 2) {
-            const code = document.createElement("code");
-            code.textContent = part;
-            p.append(code);
-          } else p.append(document.createTextNode(part));
-        });
+        renderInline(p, paragraph);
         container.append(p);
       }
     }
@@ -170,7 +190,7 @@ function newConversation(exerciseId?: string) {
     question.placeholder = "Paste your code or describe where you’re stuck…";
     addMessage(
       "assistant",
-      "What are you working on? Share the question, your code, or a first attempt. I’ll help you work through it, one question at a time.",
+      "What are you working on? Share the question, your code, or a first attempt. I’ll explain what you need and help you work through the next step.",
     );
   }
   refreshControls();
@@ -207,14 +227,7 @@ async function submit(text: string, hint = false) {
   refreshControls();
   try {
     const result = await tutor.reply(messages, guidance.value as Guidance);
-    if (requestId === generation)
-      addMessage(
-        "assistant",
-        result.text,
-        result.fallback
-          ? "Guided prompt · the AI response did not pass the teaching check"
-          : undefined,
-      );
+    if (requestId === generation) addMessage("assistant", result.text);
   } catch (error) {
     if (requestId === generation) {
       chatError.textContent =

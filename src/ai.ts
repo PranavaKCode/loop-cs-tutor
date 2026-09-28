@@ -1,4 +1,4 @@
-import type { Message, Guidance } from "./tutor";
+import { compactHistory, type Message, type Guidance } from "./tutor";
 
 export class HostedTutor {
   private controller?: AbortController;
@@ -17,7 +17,10 @@ export class HostedTutor {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: messages.slice(-30), guidance }),
+          body: JSON.stringify({
+            messages: compactHistory(messages),
+            guidance,
+          }),
           signal: controller.signal,
         },
       );
