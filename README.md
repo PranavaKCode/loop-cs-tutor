@@ -35,8 +35,8 @@ References: [Vercel Hobby](https://vercel.com/docs/plans/hobby), [OpenRouter fre
 - Student messages travel through the server to OpenRouter and its selected model provider. Their data policies apply; do not enter private code, secrets, or personal data.
 - No application chat database, analytics, browser persistence, or prompt logging. Reloading clears the current chat. Hosting/provider infrastructure may retain operational data.
 - API credentials are server-side environment variables, never `VITE_` variables or client assets. `.env*` and `.vercel/` are ignored.
-- Input role/length limits, output checks, a 45-second upstream timeout, explicit browser-origin checks, and a bounded per-instance burst throttle protect the endpoint.
-- The in-memory throttle is best-effort and is not a distributed abuse prevention system. Direct callers can still consume the shared free quota. Provider limits remain the hard cap.
+- Input role/length limits, output checks, a 45-second upstream timeout, and explicit browser-origin checks protect the endpoint. The interface allows one pending question at a time.
+- There is no additional per-IP message cap: students on the same network can ask follow-up questions independently. Direct callers can still consume the shared free quota. Provider limits remain the hard cap.
 
 ## Development
 

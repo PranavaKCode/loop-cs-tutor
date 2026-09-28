@@ -8,7 +8,6 @@ import {
   providerBody,
   ChatError,
 } from "../server/chat.ts";
-import { allowedRate } from "../api/chat.ts";
 
 // exercise the policy boundary rather than testing only interface strings.
 test("answer dumps and unfinished turns never pass the response filter", () => {
@@ -138,12 +137,4 @@ test("all authored exercises reach reflection without grading prose", () => {
     assert.equal(reflection.state.step, 3);
     assert.match(reflection.text, /explanation is for you to check/);
   });
-});
-
-test("burst throttling expires and does not block separate students", () => {
-  for (let i = 0; i < 8; i++)
-    assert.equal(allowedRate("test-student", 1000), true);
-  assert.equal(allowedRate("test-student", 1000), false);
-  assert.equal(allowedRate("another-student", 1000), true);
-  assert.equal(allowedRate("test-student", 62000), true);
 });

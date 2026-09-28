@@ -1,25 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { answer, validateInput, ChatError } from "../server/chat.ts";
 
-const visits = new Map<string, { count: number; expires: number }>();
 const ALLOWED_ORIGINS = new Set([
   "https://loop-cs-tutor.vercel.app",
   "https://pranavakcode.github.io",
 ]);
-
-// this bounded per-instance throttle reduces bursts; the provider enforces the shared hard quota.
-export function allowedRate(ip: string, now = Date.now()): boolean {
-  for (const [key, value] of visits)
-    if (value.expires <= now) visits.delete(key);
-  const entry = visits.get(ip);
-  if (entry) {
-    entry.count++;
-    return entry.count <= 8;
-  }
-  if (visits.size >= 2000) return false;
-  visits.set(ip, { count: 1, expires: now + 60000 });
-  return true;
-}
 
 // github pages can use this endpoint too, but arbitrary browser origins cannot.
 export default async function handler(
@@ -60,24 +45,7 @@ export default async function handler(
     response.end(JSON.stringify({ error: "Use POST to ask a question." }));
     return;
   }
-  const ip = String(
-    request.headers["x-forwarded-for"] ??
-      request.socket.remoteAddress ??
-      "unknown",
-  )
-    .split(",")[0]
-    .trim();
-  if (!allowedRate(ip)) {
-    response.statusCode = 429;
-    response.setHeader("Retry-After", "60");
-    response.end(
-      JSON.stringify({
-        error:
-          "A few too many questions at once. Wait a minute, then try again.",
-      }),
-    );
-    return;
-  }
+  // provider quotas remain authoritative; shared networks must not share an extra chat cap.
   try {
     if (
       !request.headers["content-type"]
